@@ -7,6 +7,6 @@ export interface Task {
 }
 
 export interface ResponseDTO<T> {
-  data?: object | any | T;
+  data?: object | T;
   time: string;
 }
