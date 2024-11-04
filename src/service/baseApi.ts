@@ -71,17 +71,17 @@ export class BaseApi {
     try {
       const res = await fetch(`${this.baseAPI}${rota}`, {
         headers: {
-          Accept: 'application/json, text/plain',
-          'Accept-Language': 'pt-BR',
-          'Content-Type': 'application/json;charset=UTF-8'
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
         },
         method: 'DELETE',
       });
       if (!res.ok) {
-        console.log('Erro ao deletar, verifique o ID e tente novamente.');
+        console.log('Erro inesperado, entre em contato com o suporte!');
         return undefined;
       }
-      return requestBody<T>(res);
+
+      return res.json() as Promise<T>;
     } catch (e) {
       console.log(e);
       return undefined;

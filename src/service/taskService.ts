@@ -1,5 +1,5 @@
 import { BaseApi } from "./baseApi";
-import { Task } from "@/types";
+import { ResponseDTO, Task } from "@/types";
 
 const API = new BaseApi();
 
@@ -21,7 +21,8 @@ export class TaskService {
   }
 
   async deletarTarefa(id: number) {
-    return await API.delete(`/tasks/${id}`);
+    const res =  API.delete(`/tasks/${id}`);
+    return res as Promise<ResponseDTO<Task>>;
   }
 
   async criarTarefa(name: string, cost: number, dueDate: string) {

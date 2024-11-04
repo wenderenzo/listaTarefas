@@ -5,3 +5,8 @@ export interface Task {
   dueDate: string;
   displayOrder: number;
 }
+
+export interface ResponseDTO<T> {
+  data?: object | any | T;
+  time: string;
+}
