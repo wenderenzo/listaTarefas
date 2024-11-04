@@ -1,101 +1,228 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import React, { useEffect, useState } from "react";
+import { TaskService } from "@/service/taskService";
+import { Task } from "@/types";
+import { FaPlus, FaTrash, FaArrowUp, FaArrowDown } from "react-icons/fa6";
+import dayjs from "dayjs";
+import { toast, Toaster } from 'react-hot-toast';
+import { BiSolidEditAlt } from "react-icons/bi";
+import { Table, Button, Modal, Form, Input, InputNumber } from 'antd';
+
+const taskService = new TaskService();
+
+const TaskList = () => {
+  const defaultValueTask = { name: '', cost: 0, dueDate: '' };
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState(defaultValueTask);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [openCreateTaskModal, setOpenCreateTaskModal] = useState(false);
+
+  const [form] = Form.useForm();  // Cria uma referência para o formulário
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = async () => {
+    setLoading(true);
+    try {
+      const response = await taskService.listarTarefas();
+      const orderedTasks = response?.sort((a, b) => a.displayOrder - b.displayOrder) || [];
+      console.log(orderedTasks);
+      setTasks(orderedTasks);
+    } catch (error) {
+      toast.error("Erro ao carregar tarefas.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    const confirm = window.confirm("Tem certeza que deseja excluir esta tarefa?");
+    if (confirm) {
+      await taskService.deletarTarefa(id);
+      toast.success("Tarefa deletada com sucesso!");
+      fetchTasks();
+    }
+  };
+
+  const openEditModal = (task?: Task) => {
+    setIsEditing(true);
+    if (task) {
+      setSelectedTask(task);
+      setFormData({ name: task.name, cost: task.cost, dueDate: task.dueDate });
+      form.setFieldsValue({ name: task.name, cost: task.cost, dueDate: task.dueDate });
+    } else {
+      setOpenCreateTaskModal(true);
+      setFormData(defaultValueTask);
+      form.resetFields();
+    }
+    setModalVisible(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditing(false);
+    setSelectedTask(null);
+    setFormData(defaultValueTask);
+    setModalVisible(false);
+    setOpenCreateTaskModal(false);
+    form.resetFields();
+  };
+
+  const handleFormSubmit = async (values: any) => {
+    const { name, cost, dueDate } = values;
+
+    try {
+      const existingTasks = await taskService.listarTarefas();
+      const taskExists = existingTasks?.some(task => task.name === name && (!isEditing || task?.id !== selectedTask?.id)) ?? false;
+
+      if (taskExists) {
+        toast.error("Já existe uma tarefa com esse nome.");
+        return;
+      }
+
+      if (isEditing && selectedTask) {
+        await taskService.atualizarTarefa(selectedTask.id, name, cost, dueDate);
+        toast.success("Tarefa atualizada com sucesso!");
+      } else {
+        await taskService.criarTarefa(name, cost, dueDate);
+        toast.success("Tarefa criada com sucesso!");
+      }
+
+      fetchTasks();
+      closeEditModal();
+    } catch (error) {
+      toast.error("Erro ao salvar tarefa.");
+    }
+  };
+
+  const moveTask = async (id: number, direction: 'up' | 'down') => {
+    const index = tasks.findIndex(task => task.id === id);
+    if ((direction === 'up' && index > 0) || (direction === 'down' && index < tasks.length - 1)) {
+      const newTasks = [...tasks];
+      const taskToMove = newTasks[index];
+      newTasks.splice(index, 1);
+      newTasks.splice(direction === 'up' ? index - 1 : index + 1, 0, taskToMove);
+
+      const updatedTasks = newTasks.map((task, idx) => ({
+        ...task,
+        displayOrder: idx + 1,
+      }));
+
+      setTasks(updatedTasks);
+      toast.success(`Tarefa movida ${direction === 'up' ? 'para cima' : 'para baixo'} com sucesso!`);
+      await saveTaskOrder(updatedTasks);
+    }
+  };
+
+  const saveTaskOrder = async (tasks: Task[]) => {
+    try {
+      await taskService.atualizarOrdemTarefas(tasks);
+      toast.success("Ordem das tarefas atualizada com sucesso!");
+    } catch (error) {
+      toast.error("Erro ao atualizar a ordem das tarefas.");
+    }
+  };
+
+  const columns = [
+    {
+      title: 'Nome da Tarefa',
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: 'Custo (R$)',
+      dataIndex: 'cost',
+      key: 'cost',
+      render: (text: number) => `R$ ${text}`,
+    },
+    {
+      title: 'Data Limite',
+      dataIndex: 'dueDate',
+      key: 'dueDate',
+      render: (text: string) => dayjs(text).format("DD/MM/YYYY"),
+    },
+    {
+      title: 'Ações',
+      key: 'actions',
+      render: (_: any, record: Task) => (
+        <>
+          <Button onClick={() => openEditModal(record)} icon={<BiSolidEditAlt />} type="link" />
+          <Button onClick={() => handleDelete(record.id)} icon={<FaTrash />} type="link" danger />
+          <Button onClick={() => moveTask(record.id, 'up')} disabled={record.id === tasks[0]?.id} type="link">
+            <FaArrowUp />
+          </Button>
+          <Button onClick={() => moveTask(record.id, 'down')} disabled={record.id === tasks[tasks.length - 1]?.id} type="link">
+            <FaArrowDown />
+          </Button>
+        </>
+      ),
+    },
+  ];
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <div className="container mx-auto p-4">
+      <Toaster />
+      <h1 className="text-2xl font-semibold mb-4">Lista de Tarefas</h1>
+      <Button onClick={() => openEditModal()} className="mb-4" type="primary" icon={<FaPlus />}>
+        Adicionar Tarefa
+      </Button>
+      <Table
+        columns={columns}
+        dataSource={tasks}
+        loading={loading}
+        rowKey="id"
+        pagination={{ pageSize: 10 }}
+      />
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      <Modal
+        title={openCreateTaskModal ? "Criar Tarefa" : "Editar Tarefa"}
+        open={modalVisible}
+        onCancel={closeEditModal}
+        footer={null}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleFormSubmit}
+        >
+          <Form.Item
+            label="Nome da Tarefa"
+            name="name"
+            rules={[{ required: true, message: 'Por favor, insira o nome da tarefa!' }]}
           >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <Input />
+          </Form.Item>
+          <Form.Item
+            label="Custo (R$)"
+            name="cost"
+            rules={[{ required: true, message: 'Por favor, insira o custo!' }]}
           >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+            <InputNumber style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item
+            label="Data Limite"
+            name="dueDate"
+            rules={[{ required: true, message: 'Por favor, insira a data limite!' }]}
+          >
+            <Input type="date" />
+          </Form.Item>
+          <Form.Item>
+            <Button type="primary" htmlType="submit">
+              {openCreateTaskModal ? "Criar Tarefa" : "Salvar Tarefa"}
+            </Button>
+            <Button onClick={closeEditModal} className="ml-2">
+              Cancelar
+            </Button>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
-}
+};
+
+export default TaskList;
