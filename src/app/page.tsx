@@ -12,16 +12,14 @@ import { Table, Button, Modal, Form, Input, InputNumber } from 'antd';
 const taskService = new TaskService();
 
 const TaskList = () => {
-  const defaultValueTask = { name: '', cost: 0, dueDate: '' };
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState(defaultValueTask);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>();
   const [modalVisible, setModalVisible] = useState(false);
   const [openCreateTaskModal, setOpenCreateTaskModal] = useState(false);
 
-  const [form] = Form.useForm();  // Cria uma referência para o formulário
+  const [form] = Form.useForm();
 
   useEffect(() => {
     fetchTasks();
@@ -32,10 +30,7 @@ const TaskList = () => {
     try {
       const response = await taskService.listarTarefas();
       const orderedTasks = response?.sort((a, b) => a.displayOrder - b.displayOrder) || [];
-      console.log(orderedTasks);
       setTasks(orderedTasks);
-    } catch (error) {
-      toast.error("Erro ao carregar tarefas.");
     } finally {
       setLoading(false);
     }
@@ -54,11 +49,9 @@ const TaskList = () => {
     setIsEditing(true);
     if (task) {
       setSelectedTask(task);
-      setFormData({ name: task.name, cost: task.cost, dueDate: task.dueDate });
       form.setFieldsValue({ name: task.name, cost: task.cost, dueDate: task.dueDate });
     } else {
       setOpenCreateTaskModal(true);
-      setFormData(defaultValueTask);
       form.resetFields();
     }
     setModalVisible(true);
@@ -67,13 +60,12 @@ const TaskList = () => {
   const closeEditModal = () => {
     setIsEditing(false);
     setSelectedTask(null);
-    setFormData(defaultValueTask);
     setModalVisible(false);
     setOpenCreateTaskModal(false);
     form.resetFields();
   };
 
-  const handleFormSubmit = async (values: any) => {
+  const handleFormSubmit = async (values: Task) => {
     const { name, cost, dueDate } = values;
 
     try {
@@ -95,8 +87,8 @@ const TaskList = () => {
 
       fetchTasks();
       closeEditModal();
-    } catch (error) {
-      toast.error("Erro ao salvar tarefa.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -123,8 +115,8 @@ const TaskList = () => {
     try {
       await taskService.atualizarOrdemTarefas(tasks);
       toast.success("Ordem das tarefas atualizada com sucesso!");
-    } catch (error) {
-      toast.error("Erro ao atualizar a ordem das tarefas.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -149,7 +141,7 @@ const TaskList = () => {
     {
       title: 'Ações',
       key: 'actions',
-      render: (_: any, record: Task) => (
+      render: (_: undefined, record: Task) => (
         <>
           <Button onClick={() => openEditModal(record)} icon={<BiSolidEditAlt />} type="link" />
           <Button onClick={() => handleDelete(record.id)} icon={<FaTrash />} type="link" danger />
@@ -177,6 +169,7 @@ const TaskList = () => {
         loading={loading}
         rowKey="id"
         pagination={{ pageSize: 10 }}
+        rowClassName={(record: Task) => record.cost >= 1000 ? 'bg-yellow-100' : ''}
       />
 
       <Modal

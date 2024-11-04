@@ -2,9 +2,9 @@ import Router from 'next/router';
 
 export class BaseApi {
   public isExpired = false;
-  private baseAPI = 'http://localhost:8080/api';
+  private baseAPI = 'https://listatarefasback.onrender.com/api';
 
-  async get<T>(rota: string, body = {}): Promise<T | undefined> {
+  async get<T>(rota: string): Promise<T | undefined> {
 
     try {
       const res = await fetch(`${this.baseAPI}${rota}`, {
